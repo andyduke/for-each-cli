@@ -34,6 +34,7 @@ Options:
   String mask = '';
   String path = '';
   String command = '';
+  List<String> commandArguments = [];
   bool silent = false;
   bool verbose = false;
 
@@ -77,7 +78,9 @@ Options:
 
     if (rest.isEmpty) return;
 
-    command = rest.join(' ').trimChar('"');
+    // command = rest.join(' ').trimChar('"');
+    command = rest.removeAt(0).trimChar('"');
+    commandArguments = rest;
 
     _ready = true;
   }
@@ -97,7 +100,7 @@ Options:
   void displaySummary() {
     logger.trace(' - Mask: $mask');
     logger.trace(' - Path: $path');
-    logger.trace(' - Command: $command');
+    logger.trace(' - Command: $command ${commandArguments.join(' ')}');
     logger.trace('');
   }
 
@@ -161,12 +164,15 @@ Options:
 
   Future<int> runBatch(FileInfo file) async {
     final cmd = subst(command, file);
+    final args = commandArguments.map((entry) {
+      return subst(entry, file);
+    }).toList(growable: false);
 
     // logger.trace('Run: $cmd');
 
     final result = await Process.run(
       cmd,
-      [],
+      args,
       runInShell: true,
     );
 
