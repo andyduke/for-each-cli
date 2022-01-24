@@ -15,3 +15,5 @@ r-js.cmd
 r-silent.cmd
 r-usage.cmd
 r-verbose.cmd
+
+build.cmd
