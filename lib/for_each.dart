@@ -28,6 +28,7 @@ If the <path> is not specified, the current path is used.
 Options:
   -s, --silent\t\t\tSilent output
   -v, --verbose\t\t\tVerbose output
+
 ''';
 
   String mask = '';
