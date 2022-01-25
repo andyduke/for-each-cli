@@ -12,7 +12,7 @@ import 'package:for_each/string_ext.dart';
 
 class ForEachApp {
   final String name = 'For-Each';
-  final String version = '1.1';
+  final String version = '1.2';
   final String copyright = 'Copyright (C) 2022 Andy Chentsov <chentsov@gmail.com>';
 
   String get intro => '$name $version, $copyright';
@@ -27,6 +27,8 @@ Substitutions can be used in <command>:
  - {dir} for the full path to the found file without the file name itself;
  - {file.ext} for the path to the found file relative to <path>;
  - {file} for the path (without extension) to the found file relative to <path>;
+ - {name.ext} for the filename with extension;
+ - {name} for the filename without extension;
  - {ext} for file extension.
 
 If the <path> is not specified, the current path is used.
@@ -210,11 +212,13 @@ ${_indent('${parser.usage}\n', indent: usageIndent)}
 
   String subst(String command, FileInfo file) {
     final result = command
-        .replaceFirst('{file}', file.basename)
-        .replaceFirst('{dir}', file.dir)
-        .replaceFirst('{path}', file.path)
-        .replaceFirst('{file.ext}', file.name)
-        .replaceFirst('{ext}', file.ext);
+        .replaceAll('{file}', file.basename)
+        .replaceAll('{dir}', file.dir)
+        .replaceAll('{path}', file.path)
+        .replaceAll('{file.ext}', file.name)
+        .replaceAll('{ext}', file.ext)
+        .replaceAll('{name.ext}', file.filenameExt)
+        .replaceAll('{name}', file.filename);
     return result;
   }
 
@@ -274,6 +278,8 @@ ${_indent('${parser.usage}\n', indent: usageIndent)}
         name: relativePath,
         basename: p.withoutExtension(relativePath),
         ext: p.extension(entry.basename).substring(1),
+        filename: p.withoutExtension(entry.basename),
+        filenameExt: entry.basename,
       );
     }).toList();
 
