@@ -15,6 +15,9 @@ r-js.cmd
 r-silent.cmd
 r-usage.cmd
 r-verbose.cmd
+r-dry-run.cmd
 
 build.cmd
 build-binary
+
+_temp/

@@ -9,7 +9,7 @@ import 'package:for_each/string_ext.dart';
 
 class ForEachApp {
   final String name = 'For-Each';
-  final String version = '1.0';
+  final String version = '1.1';
   final String copyright = 'Copyright (C) 2022 Andy Chentsov <chentsov@gmail.com>';
 
   String get intro => '$name $version, $copyright';
@@ -26,6 +26,7 @@ Substitutions can be used in <command>:
 If the <path> is not specified, the current path is used.
 
 Options:
+  -d, --dry-run\t\t\tDry run
   -s, --silent\t\t\tSilent output
   -v, --verbose\t\t\tVerbose output
 
@@ -35,6 +36,8 @@ Options:
   String path = '';
   String command = '';
   List<String> commandArguments = [];
+
+  bool dryRun = false;
   bool silent = false;
   bool verbose = false;
 
@@ -52,6 +55,8 @@ Options:
     // Parse args
     var results = parser.parse(args);
     var rest = results.rest.toList(growable: true);
+
+    dryRun = results['dry-run'];
 
     // Setup Logger
     silent = results['silent'];
@@ -109,6 +114,12 @@ Options:
   }
 
   void setupParser(List<String> args) {
+    parser.addFlag(
+      'dry-run',
+      abbr: 'd',
+      defaultsTo: false,
+    );
+
     parser.addFlag(
       'verbose',
       abbr: 'v',
@@ -170,23 +181,29 @@ Options:
 
     // logger.trace('Run: $cmd');
 
-    final result = await Process.run(
-      cmd,
-      args,
-      runInShell: true,
-    );
+    if (dryRun) {
+      logger.write('RUN: $cmd ${args.join(' ')}\n');
 
-    final err = result.stderr.toString().trim();
-    final out = result.stdout.toString().trim();
+      return 0;
+    } else {
+      final result = await Process.run(
+        cmd,
+        args,
+        runInShell: true,
+      );
 
-    if (err.isNotEmpty) {
-      logger.stderr(err);
+      final err = result.stderr.toString().trim();
+      final out = result.stdout.toString().trim();
+
+      if (err.isNotEmpty) {
+        logger.stderr(err);
+      }
+      if (out.isNotEmpty) {
+        logger.stdout(out);
+      }
+
+      return result.exitCode;
     }
-    if (out.isNotEmpty) {
-      logger.stdout(out);
-    }
-
-    return result.exitCode;
   }
 
   Future<List<FileInfo>> scan({
