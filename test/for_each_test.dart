@@ -24,8 +24,8 @@ void main() {
       );
 
       if (debug) {
-        print(result.stderr);
-        print(result.stdout);
+        print(result.stderr.toString().replaceAll(r'\r', ''));
+        print(result.stdout.toString().replaceAll(r'\r', ''));
       }
 
       return result;
@@ -39,10 +39,10 @@ void main() {
     });
 
     test('List dart files', () async {
-      final result = await forEach(['*.dart do echo {file}']);
+      final result = await forEach(['*.dart do echo {file.ext}']);
 
       expect(result.exitCode, 0);
-      expect(result.stdout, '''
+      expect(result.stdout.toString().replaceAll('\r', ''), '''
 ${app.intro}
 
 Scanning...
@@ -56,10 +56,10 @@ test\\for_each_test.dart
     });
 
     test('Silent list dart files', () async {
-      final result = await forEach(['-s *.dart do echo {file}']);
+      final result = await forEach(['-s *.dart do echo {file.ext}']);
 
       expect(result.exitCode, 0);
-      expect(result.stdout, '''
+      expect(result.stdout.toString().replaceAll('\r', ''), '''
 bin\\for_each.dart
 lib\\file_info.dart
 lib\\for_each.dart
@@ -69,10 +69,10 @@ test\\for_each_test.dart
     });
 
     test('List dart files inside "lib" only (using path)', () async {
-      final result = await forEach(['-s *.dart in $workingDir\\lib do echo {file}']);
+      final result = await forEach(['-s *.dart in $workingDir\\lib do echo {file.ext}']);
 
       expect(result.exitCode, 0);
-      expect(result.stdout, '''
+      expect(result.stdout.toString().replaceAll('\r', ''), '''
 file_info.dart
 for_each.dart
 string_ext.dart
@@ -80,10 +80,10 @@ string_ext.dart
     });
 
     test('List dart files inside "lib" only', () async {
-      final result = await forEach(['-s lib/**.dart in $workingDir do echo {file}']);
+      final result = await forEach(['-s lib/**.dart in $workingDir do echo {file.ext}']);
 
       expect(result.exitCode, 0);
-      expect(result.stdout, '''
+      expect(result.stdout.toString().replaceAll('\r', ''), '''
 lib\\file_info.dart
 lib\\for_each.dart
 lib\\string_ext.dart

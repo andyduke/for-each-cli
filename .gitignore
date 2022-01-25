@@ -16,6 +16,9 @@ r-silent.cmd
 r-usage.cmd
 r-verbose.cmd
 r-dry-run.cmd
+r-exit-code.cmd
+r-subst.cmd
+r-verbose-debug.cmd
 
 build.cmd
 build-binary

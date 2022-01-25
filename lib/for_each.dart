@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:cli_util/cli_logging.dart';
 import 'package:args/args.dart';
+// import 'package:args/src/utils.dart' show wrapText;
 import 'package:path/path.dart' as p;
 import 'package:glob/glob.dart';
 import 'package:glob/list_local_fs.dart';
@@ -16,22 +17,24 @@ class ForEachApp {
 
   String get intro => '$name $version, $copyright';
 
-  final String usage = '''Usage: for-each [<options>] <mask> [in <path>] do <command...>
+  static const int usageIndent = 2;
+  final String _usage = '''Usage: for-each [<options>] <mask> [in <path>] do <command...>
 
 You can use bash-style substitutions in the <mask>, for example: "assets/**/*.scss". 
 
 Substitutions can be used in <command>:
  - {path} for the full path to the found file;
  - {dir} for the full path to the found file without the file name itself;
- - {name} for the path to the found file relative to <path>.
+ - {file.ext} for the path to the found file relative to <path>;
+ - {file} for the path (without extension) to the found file relative to <path>;
+ - {ext} for file extension.
 
 If the <path> is not specified, the current path is used.
+''';
 
+  String get usage => '''$_usage
 Options:
-  -d, --dry-run\t\t\tDry run
-  -s, --silent\t\t\tSilent output
-  -v, --verbose\t\t\tVerbose output
-
+${_indent('${parser.usage}\n', indent: usageIndent)}
 ''';
 
   String mask = '';
@@ -39,11 +42,19 @@ Options:
   String command = '';
   List<String> commandArguments = [];
 
+  int? failOn;
+
   bool dryRun = false;
   bool silent = false;
   bool verbose = false;
+  String verbosity = verbosityNormal;
 
-  final parser = ArgParser();
+  static const String verbosityNormal = 'normal';
+  static const String verbosityDebug = 'debug';
+
+  static int get outputWidth => stdout.hasTerminal ? stdout.terminalColumns : 80;
+
+  final parser = ArgParser(usageLineLength: outputWidth - usageIndent);
   late Logger logger;
 
   bool _ready = false;
@@ -58,11 +69,13 @@ Options:
     var results = parser.parse(args);
     var rest = results.rest.toList(growable: true);
 
+    failOn = int.tryParse(results['fail-on'] ?? '');
     dryRun = results['dry-run'];
 
     // Setup Logger
     silent = results['silent'];
     verbose = results['verbose'] && !silent;
+    verbosity = results['verbosity'] ?? verbosityNormal;
     logger = verbose ? Logger.verbose(logTime: false) : Logger.standard();
 
     if (rest.isEmpty) return;
@@ -85,7 +98,6 @@ Options:
 
     if (rest.isEmpty) return;
 
-    // command = rest.join(' ').trimChar('"');
     command = rest.removeAt(0).trimChar('"');
     commandArguments = rest;
 
@@ -120,18 +132,44 @@ Options:
       'dry-run',
       abbr: 'd',
       defaultsTo: false,
-    );
-
-    parser.addFlag(
-      'verbose',
-      abbr: 'v',
-      defaultsTo: false,
+      help: 'Dry run',
     );
 
     parser.addFlag(
       'silent',
       abbr: 's',
       defaultsTo: false,
+      help: 'Silent output',
+    );
+
+    parser.addFlag(
+      'verbose',
+      abbr: 'v',
+      defaultsTo: false,
+      help: 'Verbose output',
+    );
+
+    parser.addOption(
+      'verbosity',
+      defaultsTo: 'normal',
+      help: 'Control output verbosity',
+      allowed: [
+        'normal',
+        'debug',
+      ],
+      allowedHelp: {
+        'normal': 'Shows detailed information about searching for files and running commands',
+        'debug': 'Shows more detailed information',
+      },
+      valueHelp: 'level',
+    );
+
+    parser.addOption(
+      'fail-on',
+      abbr: 'f',
+      help: 'Exit with an <exit code> if the exit code of at least one command is greater than <exit code>',
+      valueHelp: 'exit code',
+      defaultsTo: null,
     );
   }
 
@@ -152,8 +190,6 @@ Options:
     // scan
     var files = await scan(mask: mask, path: path);
 
-    // logger.write('$files');
-
     if (!verbose && !silent) {
       logger.write('\n');
     }
@@ -164,14 +200,21 @@ Options:
       }
     } else {
       for (var file in files) {
-        await runBatch(file);
+        final exitCode = await runBatch(file);
+        if (failOn != null && exitCode >= failOn!) {
+          exit(exitCode);
+        }
       }
     }
   }
 
   String subst(String command, FileInfo file) {
-    final result =
-        command.replaceFirst('{file}', file.name).replaceFirst('{dir}', file.dir).replaceFirst('{path}', file.path);
+    final result = command
+        .replaceFirst('{file}', file.basename)
+        .replaceFirst('{dir}', file.dir)
+        .replaceFirst('{path}', file.path)
+        .replaceFirst('{file.ext}', file.name)
+        .replaceFirst('{ext}', file.ext);
     return result;
   }
 
@@ -181,32 +224,14 @@ Options:
       return subst(entry, file);
     }).toList(growable: false);
 
-    // logger.trace('Run: $cmd');
-
     if (dryRun) {
       logger.write('RUN: $cmd ${args.join(' ')}\n');
 
       return 0;
     } else {
-      /*
-      final result = await Process.run(
-        cmd,
-        args,
-        runInShell: true,
-      );
-
-      final err = result.stderr.toString().trim();
-      final out = result.stdout.toString().trim();
-
-      if (out.isNotEmpty) {
-        logger.stdout(out);
+      if (verbosity == verbosityDebug) {
+        logger.trace('RUN: $cmd ${args.join(' ')}');
       }
-      if (err.isNotEmpty) {
-        logger.stderr(err);
-      }
-
-      return result.exitCode;
-      */
 
       final batchProcess = await Process.start(
         cmd,
@@ -221,7 +246,8 @@ Options:
         logger.stderr(s.endsWith('\n') ? s.substring(0, s.length - 1) : s);
       }));
 
-      return await batchProcess.exitCode;
+      final exitCode = await batchProcess.exitCode;
+      return exitCode;
     }
   }
 
@@ -240,15 +266,35 @@ Options:
 
       // print(' * ${entry.path}');
 
+      final relativePath = p.relative(entry.path, from: path);
+
       return FileInfo(
         path: entry.path,
         dir: entry.dirname,
-        name: p.relative(entry.path, from: path),
+        name: relativePath,
+        basename: p.withoutExtension(relativePath),
+        ext: p.extension(entry.basename).substring(1),
       );
     }).toList();
 
     logger.trace('');
 
     return results;
+  }
+
+  // String _wrap(String text, {int? hangingIndent}) =>
+  //     wrapText(text, length: parser.usageLineLength, hangingIndent: hangingIndent ?? outputWidth);
+
+  String _indent(String text, {int indent = 2}) {
+    var result = text.replaceAllMapped(RegExp(r'^([^\S\r\n]*)', multiLine: true), (m) {
+      if (m.groupCount > 0) {
+        // return m[1]!.padLeft(indent);
+        return ''.padLeft(indent) + m[1]!;
+      } else {
+        return m.input;
+      }
+    });
+
+    return result;
   }
 }
