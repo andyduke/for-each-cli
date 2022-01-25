@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 import 'package:cli_util/cli_logging.dart';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
@@ -186,6 +188,7 @@ Options:
 
       return 0;
     } else {
+      /*
       final result = await Process.run(
         cmd,
         args,
@@ -195,14 +198,30 @@ Options:
       final err = result.stderr.toString().trim();
       final out = result.stdout.toString().trim();
 
-      if (err.isNotEmpty) {
-        logger.stderr(err);
-      }
       if (out.isNotEmpty) {
         logger.stdout(out);
       }
+      if (err.isNotEmpty) {
+        logger.stderr(err);
+      }
 
       return result.exitCode;
+      */
+
+      final batchProcess = await Process.start(
+        cmd,
+        args,
+        runInShell: true,
+      );
+
+      unawaited(batchProcess.stdout.transform(utf8.decoder).forEach((s) {
+        logger.stdout(s.endsWith('\n') ? s.substring(0, s.length - 1) : s);
+      }));
+      unawaited(batchProcess.stderr.transform(utf8.decoder).forEach((s) {
+        logger.stderr(s.endsWith('\n') ? s.substring(0, s.length - 1) : s);
+      }));
+
+      return await batchProcess.exitCode;
     }
   }
 
