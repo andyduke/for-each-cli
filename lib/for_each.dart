@@ -185,8 +185,9 @@ ${_indent('${parser.usage}\n', indent: usageIndent)}
 
     displaySummary();
 
+    Progress? progress;
     if (!silent) {
-      logger.progress('Scanning');
+      progress = logger.progress('Scanning');
     }
 
     // scan
@@ -204,9 +205,18 @@ ${_indent('${parser.usage}\n', indent: usageIndent)}
       for (var file in files) {
         final exitCode = await runBatch(file);
         if (failOn != null && exitCode >= failOn!) {
+          if (!silent && progress != null) progress.finish(showTiming: true);
+
           exit(exitCode);
         }
       }
+    }
+
+    if (!silent && progress != null) progress.finish(showTiming: true);
+
+    if (!silent) {
+      logger.stdout('\nAll ${logger.ansi.emphasized('done')}.');
+      logger.flush();
     }
   }
 
