@@ -35,7 +35,7 @@ the substitutions [described above](#substitutions) for a regular command.
 Such patterns will be replicated for each found file.
 
 Example:
-> for-each *.* in example-project-folder do finally echo [Found: {name.ext};]
+> for-each \*.\* in example-project-folder do finally echo [Found: {name.ext};]
 
 If the files "file1.txt" and "file2.dat" are found, the following command will be executed:
 > echo Found: file1.txt; Found: file2.dat;
